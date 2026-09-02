@@ -1,0 +1,127 @@
+name: EAS Build
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Install EAS CLI
+        run: pnpm add -g eas-cli
+
+      - name: Generate icons
+        run: |
+          pnpm generate:icons || node scripts/generate_icons.js
+
+      - name: Login to EAS (expects EAS_TOKEN secret)
+        env:
+          EAS_TOKEN: ${{ secrets.EAS_TOKEN }}
+        run: |
+          npx eas-cli login --token $EAS_TOKEN
+
+      - name: Run EAS build (native)
+        env:
+          EAS_SECRET: ${{ secrets.EAS_SECRET }}
+        run: |
+          npx eas build --non-interactive --platform all --profile production || true
+
+      - name: Print recent EAS builds (informational)
+        env:
+          EAS_TOKEN: ${{ secrets.EAS_TOKEN }}
+        run: |
+          echo "Listing recent EAS builds (may require EAS CLI access):"
+          npx eas-cli build:list --limit 5 --json || npx eas build:list --limit 5 --json || true
+
+      - name: Build and export web (PWA)
+        run: |
+          pnpm build:web || npm run build:web
+          pnpm export:web || npm run export:web
+
+      - name: Upload web export artifact (workflow)
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-dist
+          path: ./dist/web
+
+      - name: Create GitHub Release (on tag)
+        if: startsWith(github.ref, 'refs/tags/')
+        id: create_release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ github.ref_name }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Zip web export for release
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          cd ./dist
+          zip -r ../web-dist.zip web || true
+
+      - name: Fetch native EAS artifacts and attach to Release
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          EAS_TOKEN: ${{ secrets.EAS_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          UPLOAD_URL: ${{ steps.create_release.outputs.upload_url }}
+        run: |
+          set -e
+          # strip template portion like "{?name,label}"
+          UPLOAD_URL_CLEAN="${UPLOAD_URL%%\{*}"
+
+          for PLATFORM in android ios; do
+            echo "Looking for latest finished $PLATFORM build..."
+            ID=$(npx eas-cli build:list --limit 20 --json | jq -r ".[] | select(.platform==\"$PLATFORM\") | select(.status==\"finished\") | .id" | head -n1)
+            if [ -z "$ID" ] || [ "$ID" = "null" ]; then
+              echo "No finished $PLATFORM build found. Skipping."
+              continue
+            fi
+            echo "Found build ID: $ID"
+            # Inspect build to get artifact URL
+            ARTIFACT_URL=$(npx eas-cli build:inspect --json --id "$ID" | jq -r '.. | .url? // .artifacts[]?.url? // empty' | head -n1)
+            if [ -z "$ARTIFACT_URL" ] || [ "$ARTIFACT_URL" = "null" ]; then
+              echo "No artifact URL found for build $ID. Skipping."
+              continue
+            fi
+            echo "Downloading artifact from: $ARTIFACT_URL"
+            # Choose filename based on platform
+            if [ "$PLATFORM" = "android" ]; then
+              FILE_NAME="android-artifact-$(date +%s).apk"
+            else
+              FILE_NAME="ios-artifact-$(date +%s).ipa"
+            fi
+            curl -L --fail -o "$FILE_NAME" "$ARTIFACT_URL"
+            if [ -f "$FILE_NAME" ]; then
+              echo "Uploading $FILE_NAME to release..."
+              curl -s -X POST -H "Authorization: token $GITHUB_TOKEN" -H "Content-Type: application/octet-stream" --data-binary @"$FILE_NAME" "$UPLOAD_URL_CLEAN?name=$FILE_NAME" || echo "Upload failed"
+            else
+              echo "Download failed for $ARTIFACT_URL"
+            fi
+          done
+
+      - name: Upload web export to Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: actions/upload-release-asset@v1
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./web-dist.zip
+          asset_name: web-dist.zip
+          asset_content_type: application/zip
+
+      - name: Final notice
+        if: success()
+        run: echo "EAS build finished; native artifacts are available in EAS build page. Web export uploaded as 'web-dist' and attached to release (if tagging)."

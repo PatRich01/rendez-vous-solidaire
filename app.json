@@ -1,0 +1,38 @@
+{
+  "expo": {
+    "name": "Rendez-vous Solidaire",
+    "slug": "rendez-vous-solidaire",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "platforms": ["ios", "android", "web"],
+    "icon": "assets/icons/icon-512.png",
+    "splash": {
+      "image": "assets/icons/icon-512.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "updates": {
+      "fallbackToCacheTimeout": 0
+    },
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.example.rdvsolidaire",
+      "buildNumber": "1.0.0",
+      "infoPlist": {
+        "CFBundleDisplayName": "Rendez-vous Solidaire",
+        "UIStatusBarStyle": "UIStatusBarStyleDarkContent"
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "assets/icons/icon-192.png",
+        "backgroundColor": "#ffffff"
+      },
+      "package": "com.example.rdvsolidaire"
+    },
+    "web": {
+      "favicon": "web/icons/icon-192.png"
+    }
+  }
+}
