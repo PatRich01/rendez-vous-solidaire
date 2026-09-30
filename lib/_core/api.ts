@@ -118,8 +118,22 @@ export async function exchangeOAuthCode(
 
 // Logout
 export async function logout(): Promise<void> {
-  await apiCall<void>("/api/auth/logout", {
+  await apiCall<void>("/api/auth/logout", { method: "POST" });
+}
+
+// Local email/password register
+export async function register(name: string, email: string, password: string) {
+  return apiCall<{ success: boolean; user: any; sessionToken: string }>("/api/auth/register", {
     method: "POST",
+    body: JSON.stringify({ name, email, password }),
+  });
+}
+
+// Local email/password login
+export async function login(email: string, password: string) {
+  return apiCall<{ success: boolean; user: any; sessionToken: string }>("/api/auth/login", {
+    method: "POST",
+    body: JSON.stringify({ email, password }),
   });
 }
 

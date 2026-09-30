@@ -4,6 +4,8 @@ import { useApp } from "@/lib/app-context";
 import { useColors } from "@/hooks/use-colors";
 import { useState, useEffect } from "react";
 import { UserProfile, AlertPreferences, TransportMode } from "@/lib/types";
+import { useAuth } from "@/hooks/use-auth";
+import { useRouter } from "expo-router";
 
 const TRANSPORT_MODES: { label: string; value: TransportMode }[] = [
   { label: "🚶 Walk", value: "walk" },
@@ -15,6 +17,8 @@ const TRANSPORT_MODES: { label: string; value: TransportMode }[] = [
 export default function ProfileScreen() {
   const colors = useColors();
   const { user, setUser, updateAlertPreferences } = useApp();
+  const { logout } = useAuth();
+  const router = useRouter();
 
   const [name, setName] = useState(user?.name || "");
   const [defaultTransport, setDefaultTransport] = useState<TransportMode>(user?.defaultTransportMode || "car");
@@ -304,6 +308,20 @@ export default function ProfileScreen() {
               Never leave anyone behind
             </Text>
           </View>
+
+          {/* Logout */}
+          <TouchableOpacity
+            onPress={async () => { await logout(); router.replace("/login"); }}
+            style={{
+              backgroundColor: colors.error,
+              paddingVertical: 12,
+              borderRadius: 8,
+              alignItems: "center",
+            }}
+            activeOpacity={0.8}
+          >
+            <Text style={{ fontSize: 14, fontWeight: "600", color: "white" }}>🚪 Sign Out</Text>
+          </TouchableOpacity>
         </View>
       </ScrollView>
     </ScreenContainer>

@@ -1,5 +1,6 @@
 import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
+import { createHash, randomBytes } from "crypto";
 import { InsertUser, users } from "../drizzle/schema";
 import { ENV } from "./_core/env";
 
@@ -90,3 +91,40 @@ export async function getUserByOpenId(openId: string) {
 }
 
 // TODO: add feature queries here as your schema grows.
+
+function hashPassword(password: string): string {
+  return createHash("sha256").update(password).digest("hex");
+}
+
+export async function getUserByEmail(email: string) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db.select().from(users).where(eq(users.email, email)).limit(1);
+  return result.length > 0 ? result[0] : undefined;
+}
+
+export async function createLocalUser(data: { name: string; email: string; password: string }) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const openId = `local_${randomBytes(16).toString("hex")}`;
+  const hashed = hashPassword(data.password);
+  await db.insert(users).values({
+    openId,
+    name: data.name,
+    email: data.email,
+    password: hashed,
+    loginMethod: "email",
+    lastSignedIn: new Date(),
+  });
+  const user = await getUserByEmail(data.email);
+  if (!user) throw new Error("Failed to create user");
+  return user;
+}
+
+export async function verifyLocalUser(email: string, password: string) {
+  const user = await getUserByEmail(email);
+  if (!user || !user.password) return null;
+  const hashed = hashPassword(password);
+  if (user.password !== hashed) return null;
+  return user;
+}
