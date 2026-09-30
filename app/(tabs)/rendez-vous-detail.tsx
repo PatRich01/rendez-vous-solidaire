@@ -1,12 +1,9 @@
-import { ScrollView, Text, View, TouchableOpacity, FlatList, Dimensions, Share, Platform } from "react-native";
+import { ScrollView, Text, View, TouchableOpacity, FlatList, Share, Platform } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { useApp } from "@/lib/app-context";
 import { useRouter } from "expo-router";
 import { useColors } from "@/hooks/use-colors";
-import { useState } from "react";
 import { Participant } from "@/lib/types";
-
-const SCREEN_WIDTH = Dimensions.get("window").width;
 
 export default function RendezVousDetailScreen() {
   const router = useRouter();

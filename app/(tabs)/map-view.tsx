@@ -39,7 +39,7 @@ export default function MapViewScreen() {
   const groupLocation = getGroupLocation();
 
   const renderParticipantMarker = ({ item }: { item: Participant }) => {
-    if (zoomLevel < 0.5) return null; // Hide names at far zoom
+    if (zoomLevel < 0.5) return <View key={item.id} />;
 
     const distance = calculateDistance(groupLocation, item.location);
     const proximityStatus = getProximityAlert(item.id);
